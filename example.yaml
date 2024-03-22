@@ -1,0 +1,5 @@
+tools:
+  gruntwork-io/terragrunt:
+    - 0.55.18
+  opentofu/opentofu:
+    - v1.6.2
