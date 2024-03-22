@@ -6,6 +6,7 @@ import (
 
 	"github.com/jplanckeel/kit/pkg/config"
 	"github.com/jplanckeel/kit/pkg/github"
+	"github.com/jplanckeel/kit/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -33,13 +34,38 @@ var install = &cobra.Command{
 					//tmp for dev
 					if release != nil {
 						assets := gh.ListReleaseAssets(repo[0], repo[1], *release.ID)
-						listAssets := github.ConvertList(assets)
 
 						// Filter assets with OS and Arch
-						filteredAssets := github.FilterAssets(listAssets)
+						filteredAssets := github.FilterAssets(assets)
+
+						if len(filteredAssets) == 1 {
+							err := github.DownloadFile(*filteredAssets[0].BrowserDownloadURL, *filteredAssets[0].Name)
+							if err != nil {
+								fmt.Printf("Error downloading asset: %v\n", err)
+								return
+							}
+							utils.DecompressFile(*filteredAssets[0].Name)
+							if err != nil {
+								fmt.Printf("Error decompress file: %v\n", err)
+								return
+							}
+						}
 
 						for _, asset := range filteredAssets {
-							fmt.Println(asset)
+							hasSuffix, _ := github.CheckSuffixArchive(*asset.Name)
+							if hasSuffix {
+								err := github.DownloadFile(*asset.BrowserDownloadURL, *asset.Name)
+								if err != nil {
+									fmt.Printf("Error downloading asset: %v\n", err)
+									return
+								}
+								utils.DecompressFile(*asset.Name)
+								if err != nil {
+									fmt.Printf("Error decompress file: %v\n", err)
+									return
+								}
+							}
+
 						}
 					}
 				}

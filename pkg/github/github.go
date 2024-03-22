@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 
@@ -54,24 +56,24 @@ func (c Client) ListReleaseAssets(owner string, repo string, id int64) (allAsset
 	return allAssets
 }
 
-func FilterAssets(assets []string) []string {
+func FilterAssets(assets []*github.ReleaseAsset) []*github.ReleaseAsset {
 	assets = filterAssetsByArch(assets)
 	return filterAssetsByOs(assets)
 }
 
-func filterAssetsByArch(assets []string) []string {
+func filterAssetsByArch(assets []*github.ReleaseAsset) []*github.ReleaseAsset {
 	return filterAssetsBy(assets, runtime.GOARCH)
 }
 
-func filterAssetsByOs(assets []string) []string {
+func filterAssetsByOs(assets []*github.ReleaseAsset) []*github.ReleaseAsset {
 	return filterAssetsBy(assets, runtime.GOOS)
 }
 
 // FilterAssets filters assets based on the provided name.
-func filterAssetsBy(assets []string, filter string) []string {
-	var filteredAssets []string
+func filterAssetsBy(assets []*github.ReleaseAsset, filter string) []*github.ReleaseAsset {
+	var filteredAssets []*github.ReleaseAsset
 	for _, asset := range assets {
-		if strings.Contains(asset, filter) {
+		if strings.Contains(*asset.Name, filter) {
 			filteredAssets = append(filteredAssets, asset)
 		}
 	}
@@ -118,4 +120,39 @@ func GetRelease(assets []*github.RepositoryRelease, version string) (*github.Rep
 		}
 	}
 	return nil, errors.New("no release found")
+}
+
+func DownloadFile(url string, filepath string) error {
+	// Fetch the content from the URL
+	response, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	// Create a new file on the file system
+	file, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Copy the content from the HTTP response into the local file
+	_, err = io.Copy(file, response.Body)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("file downloaded: %s\n", filepath)
+	return nil
+}
+
+func CheckSuffixArchive(assetFileName string) (bool, string) {
+	if strings.HasSuffix(assetFileName, ".tar.gz") || strings.HasSuffix(assetFileName, ".tgz") {
+		return true, "tar"
+	}
+	if strings.HasSuffix(assetFileName, ".zip") {
+		return true, "zip"
+	}
+	return false, ""
 }
